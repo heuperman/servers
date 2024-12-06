@@ -15,6 +15,9 @@ from enum import Enum
 import git
 from pydantic import BaseModel
 
+class GitInit(BaseModel):
+    repo_path: str
+
 class GitStatus(BaseModel):
     repo_path: str
 
@@ -45,6 +48,7 @@ class GitCreateBranch(BaseModel):
     base_branch: str | None = None
 
 class GitTools(str, Enum):
+    INIT = "git_init"
     STATUS = "git_status"
     DIFF_UNSTAGED = "git_diff_unstaged"
     DIFF_STAGED = "git_diff_staged"
@@ -53,6 +57,10 @@ class GitTools(str, Enum):
     RESET = "git_reset"
     LOG = "git_log"
     CREATE_BRANCH = "git_create_branch"
+
+def git_init(path: Path) -> str:
+    git.Repo.init(path)
+    return f"Initialized empty Git repository in {path}"
 
 def git_status(repo: git.Repo) -> str:
     return repo.git.status()
@@ -112,6 +120,11 @@ async def serve(repository: Path | None) -> None:
     @server.list_tools()
     async def list_tools() -> list[Tool]:
         return [
+            Tool(
+                name=GitTools.INIT,
+                description="Initialize a new Git repository",
+                inputSchema=GitInit.schema(),
+            ),
             Tool(
                 name=GitTools.STATUS,
                 description="Shows the working tree status",
@@ -186,6 +199,16 @@ async def serve(repository: Path | None) -> None:
     @server.call_tool()
     async def call_tool(name: str, arguments: dict) -> list[TextContent]:
         repo_path = Path(arguments["repo_path"])
+        
+        # Special handling for git init since it doesn't require an existing repo
+        if name == GitTools.INIT:
+            result = git_init(repo_path)
+            return [TextContent(
+                type="text",
+                text=result
+            )]
+        
+        # For all other commands, we need an existing repo
         repo = git.Repo(repo_path)
 
         match name:
