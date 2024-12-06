@@ -22,6 +22,17 @@ class GitFetch(BaseModel):
     repo_path: str
     remote: str = Field(default="origin", description="Remote name to fetch from")
 
+class GitPull(BaseModel):
+    repo_path: str
+    remote: str = Field(default="origin", description="Remote to pull from")
+    branch: str | None = Field(default=None, description="Branch to pull (default: current branch)")
+
+class GitPush(BaseModel):
+    repo_path: str
+    remote: str = Field(default="origin", description="Remote to push to")
+    branch: str | None = Field(default=None, description="Branch to push (default: current branch)")
+    set_upstream: bool = Field(default=False, description="Set up tracking branch")
+
 class GitRemoteAdd(BaseModel):
     repo_path: str
     name: str
@@ -59,6 +70,8 @@ class GitCreateBranch(BaseModel):
 class GitTools(str, Enum):
     INIT = "git_init"
     FETCH = "git_fetch"
+    PULL = "git_pull"
+    PUSH = "git_push"
     REMOTE_ADD = "git_remote_add"
     STATUS = "git_status"
     DIFF_UNSTAGED = "git_diff_unstaged"
@@ -79,6 +92,34 @@ def git_fetch(repo: git.Repo, remote: str = "origin") -> str:
     if not fetch_info:
         return f"No updates from {remote}"
     return "\n".join(str(info) for info in fetch_info)
+
+def git_pull(repo: git.Repo, remote: str = "origin", branch: str | None = None) -> str:
+    try:
+        origin = repo.remotes[remote]
+        if branch:
+            pull_info = origin.pull(branch)
+        else:
+            pull_info = origin.pull()
+        if not pull_info:
+            return f"Already up to date with {remote}"
+        return "\n".join(str(info) for info in pull_info)
+    except git.GitCommandError as e:
+        if "There is no tracking information for the current branch" in str(e):
+            return "No tracking information for current branch. Use --set-upstream to configure tracking."
+        raise
+
+def git_push(repo: git.Repo, remote: str = "origin", branch: str | None = None, set_upstream: bool = False) -> str:
+    try:
+        origin = repo.remotes[remote]
+        if branch:
+            if set_upstream:
+                return repo.git.push('--set-upstream', remote, branch)
+            return repo.git.push(remote, branch)
+        return repo.git.push()
+    except git.GitCommandError as e:
+        if "no upstream branch" in str(e):
+            return f"Current branch has no upstream branch. Use --set-upstream to configure tracking."
+        raise
 
 def git_remote_add(repo: git.Repo, name: str, url: str) -> str:
     repo.create_remote(name, url)
@@ -151,6 +192,16 @@ async def serve(repository: Path | None) -> None:
                 name=GitTools.FETCH,
                 description="Fetch refs and objects from another repository",
                 inputSchema=GitFetch.schema(),
+            ),
+            Tool(
+                name=GitTools.PULL,
+                description="Fetch and integrate with another repository or branch",
+                inputSchema=GitPull.schema(),
+            ),
+            Tool(
+                name=GitTools.PUSH,
+                description="Update remote refs along with associated objects",
+                inputSchema=GitPush.schema(),
             ),
             Tool(
                 name=GitTools.REMOTE_ADD,
@@ -246,6 +297,29 @@ async def serve(repository: Path | None) -> None:
         match name:
             case GitTools.FETCH:
                 result = git_fetch(repo, arguments.get("remote", "origin"))
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case GitTools.PULL:
+                result = git_pull(
+                    repo,
+                    arguments.get("remote", "origin"),
+                    arguments.get("branch")
+                )
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
+            case GitTools.PUSH:
+                result = git_push(
+                    repo,
+                    arguments.get("remote", "origin"),
+                    arguments.get("branch"),
+                    arguments.get("set_upstream", False)
+                )
                 return [TextContent(
                     type="text",
                     text=result
