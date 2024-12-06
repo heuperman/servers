@@ -13,10 +13,14 @@ from mcp.types import (
 )
 from enum import Enum
 import git
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class GitInit(BaseModel):
     repo_path: str
+
+class GitFetch(BaseModel):
+    repo_path: str
+    remote: str = Field(default="origin", description="Remote name to fetch from")
 
 class GitRemoteAdd(BaseModel):
     repo_path: str
@@ -54,6 +58,7 @@ class GitCreateBranch(BaseModel):
 
 class GitTools(str, Enum):
     INIT = "git_init"
+    FETCH = "git_fetch"
     REMOTE_ADD = "git_remote_add"
     STATUS = "git_status"
     DIFF_UNSTAGED = "git_diff_unstaged"
@@ -67,6 +72,13 @@ class GitTools(str, Enum):
 def git_init(path: Path) -> str:
     git.Repo.init(path)
     return f"Initialized empty Git repository in {path}"
+
+def git_fetch(repo: git.Repo, remote: str = "origin") -> str:
+    origin = repo.remotes[remote]
+    fetch_info = origin.fetch()
+    if not fetch_info:
+        return f"No updates from {remote}"
+    return "\n".join(str(info) for info in fetch_info)
 
 def git_remote_add(repo: git.Repo, name: str, url: str) -> str:
     repo.create_remote(name, url)
@@ -134,6 +146,11 @@ async def serve(repository: Path | None) -> None:
                 name=GitTools.INIT,
                 description="Initialize a new Git repository",
                 inputSchema=GitInit.schema(),
+            ),
+            Tool(
+                name=GitTools.FETCH,
+                description="Fetch refs and objects from another repository",
+                inputSchema=GitFetch.schema(),
             ),
             Tool(
                 name=GitTools.REMOTE_ADD,
@@ -227,6 +244,13 @@ async def serve(repository: Path | None) -> None:
         repo = git.Repo(repo_path)
 
         match name:
+            case GitTools.FETCH:
+                result = git_fetch(repo, arguments.get("remote", "origin"))
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
             case GitTools.REMOTE_ADD:
                 result = git_remote_add(repo, arguments["name"], arguments["url"])
                 return [TextContent(
