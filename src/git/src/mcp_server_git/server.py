@@ -18,6 +18,11 @@ from pydantic import BaseModel
 class GitInit(BaseModel):
     repo_path: str
 
+class GitRemoteAdd(BaseModel):
+    repo_path: str
+    name: str
+    url: str
+
 class GitStatus(BaseModel):
     repo_path: str
 
@@ -49,6 +54,7 @@ class GitCreateBranch(BaseModel):
 
 class GitTools(str, Enum):
     INIT = "git_init"
+    REMOTE_ADD = "git_remote_add"
     STATUS = "git_status"
     DIFF_UNSTAGED = "git_diff_unstaged"
     DIFF_STAGED = "git_diff_staged"
@@ -61,6 +67,10 @@ class GitTools(str, Enum):
 def git_init(path: Path) -> str:
     git.Repo.init(path)
     return f"Initialized empty Git repository in {path}"
+
+def git_remote_add(repo: git.Repo, name: str, url: str) -> str:
+    repo.create_remote(name, url)
+    return f"Added remote '{name}' with URL: {url}"
 
 def git_status(repo: git.Repo) -> str:
     return repo.git.status()
@@ -124,6 +134,11 @@ async def serve(repository: Path | None) -> None:
                 name=GitTools.INIT,
                 description="Initialize a new Git repository",
                 inputSchema=GitInit.schema(),
+            ),
+            Tool(
+                name=GitTools.REMOTE_ADD,
+                description="Add a new remote repository",
+                inputSchema=GitRemoteAdd.schema(),
             ),
             Tool(
                 name=GitTools.STATUS,
@@ -212,6 +227,13 @@ async def serve(repository: Path | None) -> None:
         repo = git.Repo(repo_path)
 
         match name:
+            case GitTools.REMOTE_ADD:
+                result = git_remote_add(repo, arguments["name"], arguments["url"])
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+
             case GitTools.STATUS:
                 status = git_status(repo)
                 return [TextContent(
