@@ -18,6 +18,10 @@ from pydantic import BaseModel, Field
 class GitInit(BaseModel):
     repo_path: str
 
+class GitDiff(BaseModel):
+    repo_path: str
+    other: str = Field(description="The branch/commit/tag to compare against")
+
 class GitFetch(BaseModel):
     repo_path: str
     remote: str = Field(default="origin", description="Remote name to fetch from")
@@ -69,6 +73,7 @@ class GitCreateBranch(BaseModel):
 
 class GitTools(str, Enum):
     INIT = "git_init"
+    DIFF = "git_diff"
     FETCH = "git_fetch"
     PULL = "git_pull"
     PUSH = "git_push"
@@ -85,6 +90,15 @@ class GitTools(str, Enum):
 def git_init(path: Path) -> str:
     git.Repo.init(path)
     return f"Initialized empty Git repository in {path}"
+
+def git_diff(repo: git.Repo, other: str) -> str:
+    """Compare current HEAD with another branch/commit/tag"""
+    try:
+        return repo.git.diff("HEAD", other)
+    except git.GitCommandError as e:
+        if "fatal: bad revision" in str(e):
+            return f"Invalid revision '{other}'"
+        raise
 
 def git_fetch(repo: git.Repo, remote: str = "origin") -> str:
     origin = repo.remotes[remote]
@@ -187,6 +201,11 @@ async def serve(repository: Path | None) -> None:
                 name=GitTools.INIT,
                 description="Initialize a new Git repository",
                 inputSchema=GitInit.schema(),
+            ),
+            Tool(
+                name=GitTools.DIFF,
+                description="Show changes between current HEAD and another branch/commit/tag",
+                inputSchema=GitDiff.schema(),
             ),
             Tool(
                 name=GitTools.FETCH,
@@ -295,6 +314,13 @@ async def serve(repository: Path | None) -> None:
         repo = git.Repo(repo_path)
 
         match name:
+            case GitTools.DIFF:
+                diff = git_diff(repo, arguments["other"])
+                return [TextContent(
+                    type="text",
+                    text=diff
+                )]
+
             case GitTools.FETCH:
                 result = git_fetch(repo, arguments.get("remote", "origin"))
                 return [TextContent(
