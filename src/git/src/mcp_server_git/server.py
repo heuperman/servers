@@ -14,60 +14,40 @@ from mcp.types import (
 from enum import Enum
 import git
 from pydantic import BaseModel, Field
+from .base import GitBaseModel
+from .sharing import (
+    GitFetch, GitPull, GitPush, GitRemoteAdd,
+    git_fetch, git_pull, git_push, git_remote_add
+)
 
-class GitInit(BaseModel):
-    repo_path: str
+class GitInit(GitBaseModel):
+    pass
 
-class GitDiff(BaseModel):
-    repo_path: str
+class GitDiff(GitBaseModel):
     other: str = Field(description="The branch/commit/tag to compare against")
 
-class GitFetch(BaseModel):
-    repo_path: str
-    remote: str = Field(default="origin", description="Remote name to fetch from")
+class GitStatus(GitBaseModel):
+    pass
 
-class GitPull(BaseModel):
-    repo_path: str
-    remote: str = Field(default="origin", description="Remote to pull from")
-    branch: str | None = Field(default=None, description="Branch to pull (default: current branch)")
+class GitDiffUnstaged(GitBaseModel):
+    pass
 
-class GitPush(BaseModel):
-    repo_path: str
-    remote: str = Field(default="origin", description="Remote to push to")
-    branch: str | None = Field(default=None, description="Branch to push (default: current branch)")
-    set_upstream: bool = Field(default=False, description="Set up tracking branch")
+class GitDiffStaged(GitBaseModel):
+    pass
 
-class GitRemoteAdd(BaseModel):
-    repo_path: str
-    name: str
-    url: str
-
-class GitStatus(BaseModel):
-    repo_path: str
-
-class GitDiffUnstaged(BaseModel):
-    repo_path: str
-
-class GitDiffStaged(BaseModel):
-    repo_path: str
-
-class GitCommit(BaseModel):
-    repo_path: str
+class GitCommit(GitBaseModel):
     message: str
 
-class GitAdd(BaseModel):
-    repo_path: str
+class GitAdd(GitBaseModel):
     files: list[str]
 
-class GitReset(BaseModel):
-    repo_path: str
+class GitReset(GitBaseModel):
+    pass
 
-class GitLog(BaseModel):
-    repo_path: str
+class GitLog(GitBaseModel):
     max_count: int = 10
 
-class GitCreateBranch(BaseModel):
-    repo_path: str
+class GitCreateBranch(GitBaseModel):
     branch_name: str
     base_branch: str | None = None
 
@@ -99,45 +79,6 @@ def git_diff(repo: git.Repo, other: str) -> str:
         if "fatal: bad revision" in str(e):
             return f"Invalid revision '{other}'"
         raise
-
-def git_fetch(repo: git.Repo, remote: str = "origin") -> str:
-    origin = repo.remotes[remote]
-    fetch_info = origin.fetch()
-    if not fetch_info:
-        return f"No updates from {remote}"
-    return "\n".join(str(info) for info in fetch_info)
-
-def git_pull(repo: git.Repo, remote: str = "origin", branch: str | None = None) -> str:
-    try:
-        origin = repo.remotes[remote]
-        if branch:
-            pull_info = origin.pull(branch)
-        else:
-            pull_info = origin.pull()
-        if not pull_info:
-            return f"Already up to date with {remote}"
-        return "\n".join(str(info) for info in pull_info)
-    except git.GitCommandError as e:
-        if "There is no tracking information for the current branch" in str(e):
-            return "No tracking information for current branch. Use --set-upstream to configure tracking."
-        raise
-
-def git_push(repo: git.Repo, remote: str = "origin", branch: str | None = None, set_upstream: bool = False) -> str:
-    try:
-        origin = repo.remotes[remote]
-        if branch:
-            if set_upstream:
-                return repo.git.push('--set-upstream', remote, branch)
-            return repo.git.push(remote, branch)
-        return repo.git.push()
-    except git.GitCommandError as e:
-        if "no upstream branch" in str(e):
-            return f"Current branch has no upstream branch. Use --set-upstream to configure tracking."
-        raise
-
-def git_remote_add(repo: git.Repo, name: str, url: str) -> str:
-    repo.create_remote(name, url)
-    return f"Added remote '{name}' with URL: {url}"
 
 def git_status(repo: git.Repo) -> str:
     return repo.git.status()
