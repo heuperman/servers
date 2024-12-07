@@ -20,7 +20,10 @@ from .snapshot import (
     GitDiff, GitStatus, GitDiffUnstaged, GitDiffStaged, GitCommit, GitAdd, GitReset,
     git_diff, git_status, git_diff_unstaged, git_diff_staged, git_commit, git_add, git_reset
 )
-from .branch import GitLog, GitCreateBranch, git_log, git_create_branch
+from .branch import (
+    GitLog, GitCreateBranch, GitSwitch,
+    git_log, git_create_branch, git_switch
+)
 from .sharing import (
     GitFetch, GitPull, GitPush, GitRemoteAdd,
     git_fetch, git_pull, git_push, git_remote_add
@@ -41,6 +44,7 @@ class GitTools(str, Enum):
     RESET = "git_reset"
     LOG = "git_log"
     CREATE_BRANCH = "git_create_branch"
+    SWITCH = "git_switch"
 
 async def serve(repository: Path | None) -> None:
     logger = logging.getLogger(__name__)
@@ -127,6 +131,11 @@ async def serve(repository: Path | None) -> None:
                 name=GitTools.CREATE_BRANCH,
                 description="Creates a new branch from an optional base branch",
                 inputSchema=GitCreateBranch.schema(),
+            ),
+            Tool(
+                name=GitTools.SWITCH,
+                description="Switch to another branch, optionally creating it with -c",
+                inputSchema=GitSwitch.schema(),
             ),
         ]
 
@@ -273,6 +282,17 @@ async def serve(repository: Path | None) -> None:
                     repo,
                     arguments["branch_name"],
                     arguments.get("base_branch")
+                )
+                return [TextContent(
+                    type="text",
+                    text=result
+                )]
+                
+            case GitTools.SWITCH:
+                result = git_switch(
+                    repo,
+                    arguments["branch_name"],
+                    arguments.get("create_branch", False)
                 )
                 return [TextContent(
                     type="text",
