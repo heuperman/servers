@@ -13,43 +13,18 @@ from mcp.types import (
 )
 from enum import Enum
 import git
-from pydantic import BaseModel, Field
+
 from .base import GitBaseModel
+from .setup import GitInit, git_init
+from .snapshot import (
+    GitDiff, GitStatus, GitDiffUnstaged, GitDiffStaged, GitCommit, GitAdd, GitReset,
+    git_diff, git_status, git_diff_unstaged, git_diff_staged, git_commit, git_add, git_reset
+)
+from .branch import GitLog, GitCreateBranch, git_log, git_create_branch
 from .sharing import (
     GitFetch, GitPull, GitPush, GitRemoteAdd,
     git_fetch, git_pull, git_push, git_remote_add
 )
-
-class GitInit(GitBaseModel):
-    pass
-
-class GitDiff(GitBaseModel):
-    other: str = Field(description="The branch/commit/tag to compare against")
-
-class GitStatus(GitBaseModel):
-    pass
-
-class GitDiffUnstaged(GitBaseModel):
-    pass
-
-class GitDiffStaged(GitBaseModel):
-    pass
-
-class GitCommit(GitBaseModel):
-    message: str
-
-class GitAdd(GitBaseModel):
-    files: list[str]
-
-class GitReset(GitBaseModel):
-    pass
-
-class GitLog(GitBaseModel):
-    max_count: int = 10
-
-class GitCreateBranch(GitBaseModel):
-    branch_name: str
-    base_branch: str | None = None
 
 class GitTools(str, Enum):
     INIT = "git_init"
@@ -66,61 +41,6 @@ class GitTools(str, Enum):
     RESET = "git_reset"
     LOG = "git_log"
     CREATE_BRANCH = "git_create_branch"
-
-def git_init(path: Path) -> str:
-    git.Repo.init(path)
-    return f"Initialized empty Git repository in {path}"
-
-def git_diff(repo: git.Repo, other: str) -> str:
-    """Compare current HEAD with another branch/commit/tag"""
-    try:
-        return repo.git.diff("HEAD", other)
-    except git.GitCommandError as e:
-        if "fatal: bad revision" in str(e):
-            return f"Invalid revision '{other}'"
-        raise
-
-def git_status(repo: git.Repo) -> str:
-    return repo.git.status()
-
-def git_diff_unstaged(repo: git.Repo) -> str:
-    return repo.git.diff()
-
-def git_diff_staged(repo: git.Repo) -> str:
-    return repo.git.diff("--cached")
-
-def git_commit(repo: git.Repo, message: str) -> str:
-    commit = repo.index.commit(message)
-    return f"Changes committed successfully with hash {commit.hexsha}"
-
-def git_add(repo: git.Repo, files: list[str]) -> str:
-    repo.index.add(files)
-    return "Files staged successfully"
-
-def git_reset(repo: git.Repo) -> str:
-    repo.index.reset()
-    return "All staged changes reset"
-
-def git_log(repo: git.Repo, max_count: int = 10) -> list[str]:
-    commits = list(repo.iter_commits(max_count=max_count))
-    log = []
-    for commit in commits:
-        log.append(
-            f"Commit: {commit.hexsha}\n"
-            f"Author: {commit.author}\n"
-            f"Date: {commit.authored_datetime}\n"
-            f"Message: {commit.message}\n"
-        )
-    return log
-
-def git_create_branch(repo: git.Repo, branch_name: str, base_branch: str | None = None) -> str:
-    if base_branch:
-        base = repo.refs[base_branch]
-    else:
-        base = repo.active_branch
-
-    repo.create_head(branch_name, base)
-    return f"Created branch '{branch_name}' from '{base.name}'"
 
 async def serve(repository: Path | None) -> None:
     logger = logging.getLogger(__name__)
