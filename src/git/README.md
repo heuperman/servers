@@ -61,6 +61,59 @@ Please note that mcp-server-git is currently in early development. The functiona
      - `start_point` (string, optional): Starting point for the new branch
    - Returns: Confirmation of branch creation
 
+9. `git_switch`
+   - Switch to another branch
+   - Inputs:
+     - `repo_path` (string): Path to Git repository
+     - `branch_name` (string): Name of the branch to switch to
+     - `create_branch` (boolean, optional): Create new branch if it doesn't exist (-c flag)
+   - Returns: Confirmation of branch switch operation
+
+10. `git_init`
+    - Initialize a new Git repository
+    - Input:
+      - `repo_path` (string): Path for the new repository
+    - Returns: Confirmation of repository initialization
+
+11. `git_diff`
+    - Show changes between commits/branches
+    - Inputs:
+      - `repo_path` (string): Path to Git repository
+      - `other` (string): Branch/commit/tag to compare against
+    - Returns: Diff output of changes
+
+12. `git_fetch`
+    - Fetch refs and objects from another repository
+    - Inputs:
+      - `repo_path` (string): Path to Git repository
+      - `remote` (string, optional): Remote to fetch from (default: "origin")
+    - Returns: Fetch operation results
+
+13. `git_pull`
+    - Fetch and integrate with another repository or branch
+    - Inputs:
+      - `repo_path` (string): Path to Git repository
+      - `remote` (string, optional): Remote to pull from (default: "origin")
+      - `branch` (string, optional): Branch to pull
+    - Returns: Pull operation results
+
+14. `git_push`
+    - Update remote refs along with objects
+    - Inputs:
+      - `repo_path` (string): Path to Git repository
+      - `remote` (string, optional): Remote to push to (default: "origin")
+      - `branch` (string, optional): Branch to push
+      - `set_upstream` (boolean, optional): Set up tracking branch
+    - Returns: Push operation results
+
+15. `git_remote_add`
+    - Add a new remote repository
+    - Inputs:
+      - `repo_path` (string): Path to Git repository
+      - `name` (string): Name for the new remote
+      - `url` (string): URL of the remote repository
+    - Returns: Confirmation of remote addition
+
 ## Installation
 
 ### Using uv (recommended)
